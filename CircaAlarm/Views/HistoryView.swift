@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - 历史记录页
 struct HistoryView: View {
@@ -139,7 +140,7 @@ struct HistoryView: View {
                         .font(.system(size: 16))
                         .foregroundColor(.white.opacity(0.6))
                     
-                    Text("点击"我要睡了"开始记录您的睡眠")
+                    Text("点击「我要睡了」开始记录您的睡眠")
                         .font(.system(size: 14))
                         .foregroundColor(.white.opacity(0.4))
                 }

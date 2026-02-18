@@ -107,7 +107,9 @@ class DataStore: ObservableObject {
             return
         }
         
-        let dateFormatter = ISO8601DateFormatter()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         
         while sqlite3_step(stmt) == SQLITE_ROW {
             if let record = parseRecord(from: stmt, dateFormatter: dateFormatter) {
@@ -119,7 +121,7 @@ class DataStore: ObservableObject {
     }
     
     /// 解析数据库记录
-    private func parseRecord(from statement: OpaquePointer, dateFormatter: ISO8601DateFormatter) -> SleepRecord? {
+    private func parseRecord(from statement: OpaquePointer, dateFormatter: DateFormatter) -> SleepRecord? {
         guard let idString = sqlite3_column_text(statement, 0).flatMap({ String(cString: $0) }),
               let id = UUID(uuidString: idString),
               let dateString = sqlite3_column_text(statement, 1).flatMap({ String(cString: $0) }),
@@ -172,39 +174,43 @@ class DataStore: ObservableObject {
             return false
         }
         
-        let dateFormatter = ISO8601DateFormatter()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         
-        sqlite3_bind_text(statement, 1, (record.id.uuidString as NSString).utf8String, -1, nil)
-        sqlite3_bind_text(statement, 2, (dateFormatter.string(from: record.date) as NSString).utf8String, -1, nil)
-        sqlite3_bind_text(statement, 3, (dateFormatter.string(from: record.bedTimeClicked) as NSString).utf8String, -1, nil)
-        sqlite3_bind_text(statement, 4, (dateFormatter.string(from: record.estimatedFallAsleepTime) as NSString).utf8String, -1, nil)
-        sqlite3_bind_text(statement, 5, (dateFormatter.string(from: record.targetWakeTime) as NSString).utf8String, -1, nil)
+        guard let stmt = statement else { return false }
+        
+        sqlite3_bind_text(stmt, 1, (record.id.uuidString as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 2, (dateFormatter.string(from: record.date) as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 3, (dateFormatter.string(from: record.bedTimeClicked) as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 4, (dateFormatter.string(from: record.estimatedFallAsleepTime) as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 5, (dateFormatter.string(from: record.targetWakeTime) as NSString).utf8String, -1, nil)
         
         if let optimalTime = record.plannedOptimalWakeTime {
-            sqlite3_bind_text(statement, 6, (dateFormatter.string(from: optimalTime) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 6, (dateFormatter.string(from: optimalTime) as NSString).utf8String, -1, nil)
         } else {
-            sqlite3_bind_null(statement, 6)
+            sqlite3_bind_null(stmt, 6)
         }
         
-        sqlite3_bind_text(statement, 7, (dateFormatter.string(from: record.actualAlarmTime) as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 7, (dateFormatter.string(from: record.actualAlarmTime) as NSString).utf8String, -1, nil)
         
         if let wakeTime = record.actualWakeTime {
-            sqlite3_bind_text(statement, 8, (dateFormatter.string(from: wakeTime) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 8, (dateFormatter.string(from: wakeTime) as NSString).utf8String, -1, nil)
         } else {
-            sqlite3_bind_null(statement, 8)
+            sqlite3_bind_null(stmt, 8)
         }
         
-        sqlite3_bind_int(statement, 9, Int32(record.snoozeCount))
-        sqlite3_bind_int(statement, 10, record.usedFallback ? 1 : 0)
+        sqlite3_bind_int(stmt, 9, Int32(record.snoozeCount))
+        sqlite3_bind_int(stmt, 10, record.usedFallback ? 1 : 0)
         
         if let comfort = record.comfortLevel {
-            sqlite3_bind_text(statement, 11, (comfort.rawValue as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 11, (comfort.rawValue as NSString).utf8String, -1, nil)
         } else {
-            sqlite3_bind_null(statement, 11)
+            sqlite3_bind_null(stmt, 11)
         }
         
-        let result = sqlite3_step(statement) == SQLITE_DONE
-        sqlite3_finalize(statement)
+        let result = sqlite3_step(stmt) == SQLITE_DONE
+        sqlite3_finalize(stmt)
         
         if result {
             sleepRecords.insert(record, at: 0)
@@ -228,26 +234,30 @@ class DataStore: ObservableObject {
             return false
         }
         
-        let dateFormatter = ISO8601DateFormatter()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        guard let stmt = statement else { return false }
         
         if let wakeTime = record.actualWakeTime {
-            sqlite3_bind_text(statement, 1, (dateFormatter.string(from: wakeTime) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 1, (dateFormatter.string(from: wakeTime) as NSString).utf8String, -1, nil)
         } else {
-            sqlite3_bind_null(statement, 1)
+            sqlite3_bind_null(stmt, 1)
         }
         
-        sqlite3_bind_int(statement, 2, Int32(record.snoozeCount))
+        sqlite3_bind_int(stmt, 2, Int32(record.snoozeCount))
         
         if let comfort = record.comfortLevel {
-            sqlite3_bind_text(statement, 3, (comfort.rawValue as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 3, (comfort.rawValue as NSString).utf8String, -1, nil)
         } else {
-            sqlite3_bind_null(statement, 3)
+            sqlite3_bind_null(stmt, 3)
         }
         
-        sqlite3_bind_text(statement, 4, (record.id.uuidString as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 4, (record.id.uuidString as NSString).utf8String, -1, nil)
         
-        let result = sqlite3_step(statement) == SQLITE_DONE
-        sqlite3_finalize(statement)
+        let result = sqlite3_step(stmt) == SQLITE_DONE
+        sqlite3_finalize(stmt)
         
         if result, let index = sleepRecords.firstIndex(where: { $0.id == record.id }) {
             sleepRecords[index] = record
@@ -265,10 +275,12 @@ class DataStore: ObservableObject {
             return false
         }
         
-        sqlite3_bind_text(statement, 1, (id.uuidString as NSString).utf8String, -1, nil)
+        guard let stmt = statement else { return false }
         
-        let result = sqlite3_step(statement) == SQLITE_DONE
-        sqlite3_finalize(statement)
+        sqlite3_bind_text(stmt, 1, (id.uuidString as NSString).utf8String, -1, nil)
+        
+        let result = sqlite3_step(stmt) == SQLITE_DONE
+        sqlite3_finalize(stmt)
         
         if result {
             sleepRecords.removeAll { $0.id == id }

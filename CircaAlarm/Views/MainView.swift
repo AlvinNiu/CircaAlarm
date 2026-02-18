@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - 主界面（睡眠启动页）
 struct MainView: View {
@@ -296,6 +297,9 @@ struct ScaleButtonStyle: ButtonStyle {
 }
 
 // MARK: - 触觉反馈管理器
+#if canImport(UIKit)
+import UIKit
+
 class HapticManager {
     static let shared = HapticManager()
     
@@ -304,6 +308,12 @@ class HapticManager {
         generator.impactOccurred()
     }
 }
+#else
+class HapticManager {
+    static let shared = HapticManager()
+    func impact(style: Int) {}
+}
+#endif
 
 // MARK: - 预览
 struct MainView_Previews: PreviewProvider {

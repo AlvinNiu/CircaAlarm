@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - 舒适度反馈页
 struct FeedbackView: View {

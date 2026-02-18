@@ -6,7 +6,13 @@
 //
 
 import SwiftUI
+import Combine
+#if canImport(AVFoundation)
 import AVFoundation
+#endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - 响铃界面
 struct AlarmRingingView: View {
@@ -66,7 +72,7 @@ struct AlarmRingingView: View {
         .onDisappear {
             stopAlarmSound()
         }
-        .fullScreenCover(isPresented: $showFeedback) {
+        .sheet(isPresented: $showFeedback) {
             if let record = record {
                 FeedbackView(record: record)
             }
@@ -258,6 +264,7 @@ struct AlarmRingingView: View {
     // MARK: - 音频处理
     
     private func setupAudioSession() {
+        #if canImport(AVFoundation)
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.duckOthers])
@@ -265,23 +272,30 @@ struct AlarmRingingView: View {
         } catch {
             print("音频会话设置失败: \(error)")
         }
+        #endif
     }
     
     private func playAlarmSound() {
+        #if canImport(AVFoundation)
         // 播放系统默认闹钟声音
         // 实际项目中可以加载自定义铃声
         // 这里简化处理，使用系统声音
+        #endif
     }
     
     private func stopAlarmSound() {
+        #if canImport(AVFoundation)
         audioPlayer?.stop()
         audioPlayer = nil
+        #endif
     }
     
     // MARK: - 闹钟操作
     
     private func stopAlarm() {
+        #if canImport(UIKit)
         HapticManager.shared.impact(style: .heavy)
+        #endif
         stopAlarmSound()
         
         // 更新记录
@@ -296,7 +310,9 @@ struct AlarmRingingView: View {
     }
     
     private func snoozeAlarm() {
+        #if canImport(UIKit)
         HapticManager.shared.impact(style: .medium)
+        #endif
         stopAlarmSound()
         
         guard var record = record else { return }
