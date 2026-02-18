@@ -9,7 +9,17 @@ import SwiftUI
 
 @main
 struct CircaAlarmApp: App {
+    #if os(iOS)
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #endif
+    
+    init() {
+        // 初始化数据存储
+        _ = DataStore.shared
+        
+        // 初始化通知管理器
+        _ = NotificationManager.shared
+    }
     
     var body: some Scene {
         WindowGroup {
@@ -18,16 +28,13 @@ struct CircaAlarmApp: App {
     }
 }
 
+#if os(iOS)
+import UIKit
+
 // MARK: - App Delegate
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        // 初始化数据存储
-        _ = DataStore.shared
-        
-        // 初始化通知管理器
-        _ = NotificationManager.shared
-        
         // 配置导航栏外观
         configureNavigationBar()
         
@@ -46,3 +53,4 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
     }
 }
+#endif
