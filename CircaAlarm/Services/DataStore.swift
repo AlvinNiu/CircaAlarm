@@ -102,19 +102,20 @@ class DataStore: ObservableObject {
         let querySQL = "SELECT * FROM sleep_records ORDER BY date DESC;"
         var statement: OpaquePointer?
         
-        guard sqlite3_prepare_v2(db, querySQL, -1, &statement, nil) == SQLITE_OK else {
+        guard sqlite3_prepare_v2(db, querySQL, -1, &statement, nil) == SQLITE_OK,
+              let stmt = statement else {
             return
         }
         
         let dateFormatter = ISO8601DateFormatter()
         
-        while sqlite3_step(statement!) == SQLITE_ROW {
-            if let record = parseRecord(from: statement, dateFormatter: dateFormatter) {
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            if let record = parseRecord(from: stmt, dateFormatter: dateFormatter) {
                 sleepRecords.append(record)
             }
         }
         
-        sqlite3_finalize(statement)
+        sqlite3_finalize(stmt)
     }
     
     /// 解析数据库记录

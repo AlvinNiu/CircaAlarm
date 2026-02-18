@@ -7,6 +7,7 @@
 
 import UserNotifications
 import SwiftUI
+import Combine
 
 // MARK: - 通知类型
 enum AlarmType {
