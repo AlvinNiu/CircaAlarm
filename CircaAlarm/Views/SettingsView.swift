@@ -79,9 +79,7 @@ struct SettingsView: View {
                     // 应用信息
                     appInfoSection
                 }
-                #if os(macOS)
-                .listStyle(.default)
-                #else
+                #if !os(macOS)
                 .listStyle(.insetGrouped)
                 #endif
             }
