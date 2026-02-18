@@ -62,7 +62,7 @@ struct MainView: View {
         .onReceive(timer) { _ in
             currentTime = Date()
         }
-        .sheet(isPresented: $showSleepConfirm) {
+        .fullScreenCover(isPresented: $showSleepConfirm) {
             SleepConfirmView()
         }
         .sheet(isPresented: $showSettings) {
