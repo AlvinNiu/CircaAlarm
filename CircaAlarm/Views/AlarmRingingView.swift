@@ -27,7 +27,9 @@ struct AlarmRingingView: View {
     @State private var record: SleepRecord?
     @State private var remainingSnoozeCount: Int = 0
     @State private var showFeedback = false
+    #if canImport(AVFoundation) && !os(macOS)
     @State private var audioPlayer: AVAudioPlayer?
+    #endif
     
     // 定时器更新当前时间
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
