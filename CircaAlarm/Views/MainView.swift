@@ -50,7 +50,9 @@ struct MainView: View {
                 }
                 .padding(.vertical, 40)
             }
+            #if !os(macOS)
             .navigationBarHidden(true)
+            #endif
         }
         .onAppear {
             checkNotificationAuthorization()
@@ -69,11 +71,19 @@ struct MainView: View {
         .sheet(isPresented: $showHistory) {
             HistoryView()
         }
+        #if os(macOS)
+        .sheet(isPresented: $showAlarmRinging) {
+            if let recordId = triggeredRecordId {
+                AlarmRingingView(recordId: recordId)
+            }
+        }
+        #else
         .fullScreenCover(isPresented: $showAlarmRinging) {
             if let recordId = triggeredRecordId {
                 AlarmRingingView(recordId: recordId)
             }
         }
+        #endif
     }
     
     // MARK: - 背景渐变
@@ -134,7 +144,9 @@ struct MainView: View {
     // MARK: - "我要睡了"按钮
     private var sleepButton: some View {
         Button(action: {
+            #if canImport(UIKit)
             HapticManager.shared.impact(style: .heavy)
+            #endif
             showSleepConfirm = true
         }) {
             ZStack {
