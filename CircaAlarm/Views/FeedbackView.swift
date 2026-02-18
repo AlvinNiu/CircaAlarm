@@ -46,7 +46,9 @@ struct FeedbackView: View {
                 .padding(.vertical, 20)
             }
             .navigationTitle("醒来反馈")
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .preferredColorScheme(.dark)
         }
     }
@@ -132,49 +134,19 @@ struct FeedbackView: View {
     private var comfortSelectionSection: some View {
         VStack(spacing: 20) {
             ForEach(ComfortLevel.allCases, id: \.self) { level in
-                Button(action: {
-                    withAnimation(.spring()) {
-                        selectedComfort = level
-                        HapticManager.shared.impact(style: .light)
-                        saveFeedback(level: level)
-                    }
-                }) {
-                    HStack(spacing: 16) {
-                        Text(level.icon)
-                            .font(.system(size: 40))
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(level.displayName)
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.white)
-                            
-                            Text(comfortDescription(for: level))
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.6))
-                        }
-                        
-                        Spacer()
-                        
-                        if selectedComfort == level {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(Color(hex: level.color))
+                ComfortLevelButton(
+                    level: level,
+                    isSelected: selectedComfort == level,
+                    action: {
+                        withAnimation(.spring()) {
+                            selectedComfort = level
+                            #if canImport(UIKit)
+                            HapticManager.shared.impact(style: .light)
+                            #endif
+                            saveFeedback(level: level)
                         }
                     }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(selectedComfort == level ?
-                                  Color(hex: level.color).opacity(0.2) :
-                                    Color.white.opacity(0.1))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(selectedComfort == level ?
-                                            Color(hex: level.color) : Color.clear,
-                                            lineWidth: 2)
-                            )
-                    )
-                }
+                )
             }
         }
     }
@@ -197,17 +169,6 @@ struct FeedbackView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
-    }
-    
-    private func comfortDescription(for level: ComfortLevel) -> String {
-        switch level {
-        case .comfortable:
-            return "醒来感觉清爽，没有困倦感"
-        case .uncomfortable:
-            return "醒来困难，感觉还没睡够"
-        case .skipped:
-            return "暂时不想评价"
-        }
     }
     
     private func saveFeedback(level: ComfortLevel) {
@@ -245,6 +206,76 @@ extension Color {
             blue:  Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+}
+
+// MARK: - 舒适度选择按钮
+struct ComfortLevelButton: View {
+    let level: ComfortLevel
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Text(level.icon)
+                    .font(.system(size: 40))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(level.displayName)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    Text(comfortDescription(for: level))
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(Color(hex: level.color))
+                }
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(backgroundColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(strokeColor, lineWidth: 2)
+                    )
+            )
+        }
+    }
+    
+    private var backgroundColor: Color {
+        if isSelected {
+            return Color(hex: level.color).opacity(0.2)
+        } else {
+            return Color.white.opacity(0.1)
+        }
+    }
+    
+    private var strokeColor: Color {
+        if isSelected {
+            return Color(hex: level.color)
+        } else {
+            return Color.clear
+        }
+    }
+}
+
+private func comfortDescription(for level: ComfortLevel) -> String {
+    switch level {
+    case .comfortable:
+        return "醒来感觉清爽，没有困倦感"
+    case .uncomfortable:
+        return "醒来困难，感觉还没睡够"
+    case .skipped:
+        return "暂时不想评价"
     }
 }
 

@@ -65,6 +65,7 @@ struct SleepConfirmView: View {
                 }
             }
             .navigationTitle("准备入睡")
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -74,11 +75,12 @@ struct SleepConfirmView: View {
                     .foregroundColor(.white.opacity(0.8))
                 }
             }
+            #endif
             .onAppear {
                 currentTime = Date()
                 recalculate()
             }
-            .onChange(of: fallAsleepDelay) { _ in
+            .onChange(of: fallAsleepDelay) { _, _ in
                 recalculate()
             }
         }
@@ -241,22 +243,18 @@ struct SleepConfirmView: View {
             // 分段选择器
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
                 ForEach(delayOptions, id: \.self) { delay in
-                    Button(action: {
-                        withAnimation(.spring()) {
-                            fallAsleepDelay = delay
-                            HapticManager.shared.impact(style: .light)
+                    DelayOptionButton(
+                        delay: delay,
+                        isSelected: fallAsleepDelay == delay,
+                        action: {
+                            withAnimation(.spring()) {
+                                fallAsleepDelay = delay
+                                #if canImport(UIKit)
+                                HapticManager.shared.impact(style: .light)
+                                #endif
+                            }
                         }
-                    }) {
-                        Text("\(Int(delay / 60))分钟")
-                            .font(.system(size: 16, weight: fallAsleepDelay == delay ? .semibold : .regular))
-                            .foregroundColor(fallAsleepDelay == delay ? .white : .white.opacity(0.7))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(fallAsleepDelay == delay ? Color(red: 0.35, green: 0.34, blue: 0.84) : Color.white.opacity(0.1))
-                            )
-                    }
+                    )
                 }
             }
         }
@@ -358,7 +356,9 @@ struct SleepConfirmView: View {
         guard let result = calculationResult else { return }
         
         isScheduling = true
+        #if canImport(UIKit)
         HapticManager.shared.impact(style: .heavy)
+        #endif
         
         // 确定最终响铃时间
         let (alarmTime, usedFallback, _) = SleepCalculator.shared.determineAlarmTime(
@@ -397,6 +397,43 @@ struct SleepConfirmView: View {
         } else {
             isScheduling = false
             // 显示错误提示
+        }
+    }
+}
+
+// MARK: - 延迟选项按钮
+struct DelayOptionButton: View {
+    let delay: TimeInterval
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text("\(Int(delay / 60))分钟")
+                .font(.system(size: 16, weight: fontWeight))
+                .foregroundColor(foregroundColor)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(backgroundColor)
+                )
+        }
+    }
+    
+    private var fontWeight: Font.Weight {
+        isSelected ? .semibold : .regular
+    }
+    
+    private var foregroundColor: Color {
+        isSelected ? .white : .white.opacity(0.7)
+    }
+    
+    private var backgroundColor: Color {
+        if isSelected {
+            return Color(red: 0.35, green: 0.34, blue: 0.84)
+        } else {
+            return Color.white.opacity(0.1)
         }
     }
 }
