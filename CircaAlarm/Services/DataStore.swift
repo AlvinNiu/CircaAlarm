@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import SQLite3
 
 // MARK: - 数据存储管理器
@@ -107,7 +108,7 @@ class DataStore: ObservableObject {
         
         let dateFormatter = ISO8601DateFormatter()
         
-        while sqlite3_step(statement) == SQLITE_ROW {
+        while sqlite3_step(statement!) == SQLITE_ROW {
             if let record = parseRecord(from: statement, dateFormatter: dateFormatter) {
                 sleepRecords.append(record)
             }
