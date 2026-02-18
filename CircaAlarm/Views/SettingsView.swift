@@ -79,9 +79,14 @@ struct SettingsView: View {
                     // 应用信息
                     appInfoSection
                 }
+                #if os(macOS)
+                .listStyle(.default)
+                #else
                 .listStyle(.insetGrouped)
+                #endif
             }
             .navigationTitle("设置")
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -92,6 +97,7 @@ struct SettingsView: View {
                     .foregroundColor(.white)
                 }
             }
+            #endif
             .preferredColorScheme(.dark)
         }
     }
@@ -146,7 +152,11 @@ struct SettingsView: View {
                     Text(strategy.displayName).tag(strategy)
                 }
             }
+            #if os(macOS)
+            .pickerStyle(.radioGroup)
+            #else
             .pickerStyle(.navigationLink)
+            #endif
             
             if fallbackStrategy == .latestTime {
                 if let _ = latestAlarmTime {
@@ -284,7 +294,7 @@ struct SettingsView: View {
     
     private func exportData() {
         // 实现数据导出功能
-        let records = dataStore.sleepRecords
+        _ = dataStore.sleepRecords
         // 转换为 CSV 或 JSON
         // 使用 UIActivityViewController 分享
     }
