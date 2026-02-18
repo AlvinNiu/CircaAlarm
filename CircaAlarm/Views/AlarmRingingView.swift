@@ -7,7 +7,7 @@
 
 import SwiftUI
 import Combine
-#if canImport(AVFoundation)
+#if canImport(AVFoundation) && !os(macOS)
 import AVFoundation
 #endif
 #if canImport(UIKit)
@@ -264,7 +264,7 @@ struct AlarmRingingView: View {
     // MARK: - 音频处理
     
     private func setupAudioSession() {
-        #if canImport(AVFoundation)
+        #if canImport(AVFoundation) && !os(macOS)
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.duckOthers])
@@ -276,7 +276,7 @@ struct AlarmRingingView: View {
     }
     
     private func playAlarmSound() {
-        #if canImport(AVFoundation)
+        #if canImport(AVFoundation) && !os(macOS)
         // 播放系统默认闹钟声音
         // 实际项目中可以加载自定义铃声
         // 这里简化处理，使用系统声音
@@ -284,7 +284,7 @@ struct AlarmRingingView: View {
     }
     
     private func stopAlarmSound() {
-        #if canImport(AVFoundation)
+        #if canImport(AVFoundation) && !os(macOS)
         audioPlayer?.stop()
         audioPlayer = nil
         #endif

@@ -74,6 +74,7 @@ struct HistoryView: View {
                 }
             }
             .navigationTitle("睡眠历史")
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -83,6 +84,7 @@ struct HistoryView: View {
                     .foregroundColor(.white)
                 }
             }
+            #endif
             .preferredColorScheme(.dark)
         }
     }
