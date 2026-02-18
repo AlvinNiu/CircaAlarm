@@ -236,7 +236,7 @@ struct ComfortLevelButton: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(Color(hex: level.color))
+                        .foregroundColor(Color(hex: level.colorName))
                 }
             }
             .padding(20)
@@ -253,7 +253,7 @@ struct ComfortLevelButton: View {
     
     private var backgroundColor: Color {
         if isSelected {
-            return Color(hex: level.color).opacity(0.2)
+            return Color(hex: level.colorName).opacity(0.2)
         } else {
             return Color.white.opacity(0.1)
         }
@@ -261,7 +261,7 @@ struct ComfortLevelButton: View {
     
     private var strokeColor: Color {
         if isSelected {
-            return Color(hex: level.color)
+            return Color(hex: level.colorName)
         } else {
             return Color.clear
         }
