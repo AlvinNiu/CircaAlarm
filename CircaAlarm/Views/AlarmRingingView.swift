@@ -7,10 +7,6 @@
 
 import SwiftUI
 import Combine
-#if canImport(AVFoundation) && !os(macOS)
-import AVFoundation
-import AudioToolbox
-#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -21,7 +17,6 @@ struct AlarmRingingView: View {
     
     @StateObject private var dataStore = DataStore.shared
     @StateObject private var notificationManager = NotificationManager.shared
-    @StateObject private var soundManager = AlarmSoundManager.shared
     
     @Environment(\.dismiss) private var dismiss
     
@@ -45,6 +40,11 @@ struct AlarmRingingView: View {
             VStack(spacing: 0) {
                 Spacer()
                 
+                // 闹钟图标和动画
+                alarmIconSection
+                
+                Spacer()
+                
                 // 当前时间大字体显示
                 timeDisplaySection
                 
@@ -64,13 +64,9 @@ struct AlarmRingingView: View {
         }
         .onAppear {
             loadRecord()
-            startAlarm()
         }
         .onReceive(timer) { _ in
             currentTime = Date()
-        }
-        .onDisappear {
-            stopAlarm()
         }
         .sheet(isPresented: $showFeedback) {
             if let record = record {
@@ -95,6 +91,21 @@ struct AlarmRingingView: View {
             endPoint: .bottom
         )
         .ignoresSafeArea()
+    }
+    
+    // MARK: - 闹钟图标动画
+    private var alarmIconSection: some View {
+        VStack {
+            Image(systemName: "alarm.fill")
+                .font(.system(size: 80))
+                .foregroundColor(.white)
+                .symbolEffect(.pulse)
+            
+            Text("闹钟响了！")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.top, 20)
+        }
     }
     
     // MARK: - 时间显示区域
@@ -138,20 +149,6 @@ struct AlarmRingingView: View {
                     .foregroundColor(.white.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
-                
-                // 音量指示器
-                if soundManager.isPlaying {
-                    VStack(spacing: 8) {
-                        Text("音量渐强中...")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.6))
-                        
-                        ProgressView(value: soundManager.currentVolume)
-                            .progressViewStyle(LinearProgressViewStyle(tint: .white))
-                            .frame(width: 150)
-                    }
-                    .padding(.top, 10)
-                }
             }
         }
     }
@@ -277,28 +274,21 @@ struct AlarmRingingView: View {
     
     // MARK: - 闹钟控制
     
-    private func startAlarm() {
-        #if canImport(UIKit) && !os(macOS)
-        // 播放闹钟声音（带渐强效果）
-        soundManager.playAlarmSound(fadeIn: dataStore.settings.volumeFadeIn, vibrate: dataStore.settings.vibrationEnabled)
-        #endif
-    }
-    
     private func stopAlarm() {
-        #if canImport(UIKit)
         #if canImport(UIKit)
         HapticManager.shared.impact(style: .heavy)
         #endif
-        #endif
-        
-        // 停止声音
-        soundManager.stopAlarmSound()
         
         // 更新记录
         if var record = record {
             record.actualWakeTime = Date()
             _ = dataStore.updateSleepRecord(record)
             self.record = record
+        }
+        
+        // 取消通知
+        if let record = record {
+            notificationManager.cancelAlarms(for: record.id)
         }
         
         // 显示反馈界面
@@ -309,9 +299,6 @@ struct AlarmRingingView: View {
         #if canImport(UIKit)
         HapticManager.shared.impact(style: .medium)
         #endif
-        
-        // 停止声音
-        soundManager.stopAlarmSound()
         
         guard var record = record else { return }
         

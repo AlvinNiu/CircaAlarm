@@ -76,6 +76,9 @@ struct SettingsView: View {
                     // 数据管理
                     dataManagementSection
                     
+                    // 使用提示
+                    tipsSection
+                    
                     // 应用信息
                     appInfoSection
                 }
@@ -182,33 +185,17 @@ struct SettingsView: View {
     // MARK: - 闹钟偏好
     private var alarmPreferencesSection: some View {
         Section {
-            // 铃声测试
-            #if !os(macOS)
-            Button(action: {
-                AlarmSoundManager.shared.playTestSound()
-            }) {
-                HStack {
-                    Image(systemName: "speaker.wave.2.fill")
-                    Text("测试铃声")
-                    Spacer()
-                    Text("点击播放")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-            }
-            .foregroundColor(.white)
-            #endif
-            
             // 最大延迟次数
             Stepper("最大延迟次数: \(maxSnoozeCount)次", value: $maxSnoozeCount, in: 1...5)
-            
-            // 音量渐变
-            Toggle("音量渐变", isOn: $volumeFadeIn)
             
             // 振动开关
             Toggle("振动提醒", isOn: $vibrationEnabled)
         } header: {
             Text("闹钟偏好")
+        } footer: {
+            Text("闹钟将通过系统通知声音叫醒您。请确保系统音量和通知音量已开启。")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
         }
     }
     
@@ -244,6 +231,25 @@ struct SettingsView: View {
         }
     }
     
+    // MARK: - 使用提示
+    private var tipsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("确保系统音量和通知音量已开启", systemImage: "speaker.wave.3.fill")
+                    .font(.system(size: 14))
+                
+                Label("在设置中允许"重要通知"以突破静音模式", systemImage: "bell.badge.fill")
+                    .font(.system(size: 14))
+                
+                Label("闹钟响铃时可在通知上直接操作，无需打开应用", systemImage: "hand.tap.fill")
+                    .font(.system(size: 14))
+            }
+            .foregroundColor(.white.opacity(0.8))
+        } header: {
+            Text("使用提示")
+        }
+    }
+    
     // MARK: - 应用信息
     private var appInfoSection: some View {
         Section {
@@ -261,7 +267,7 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
             
-            Text("CircaAlarm 是一款基于睡眠周期理论的智能闹钟应用，完全本地运行，保护您的隐私。")
+            Text("CircaAlarm 是一款基于睡眠周期理论的智能闹钟应用。闹钟通过系统通知声音叫醒您，支持在通知上直接停止或延迟。")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
                 .padding(.vertical, 4)

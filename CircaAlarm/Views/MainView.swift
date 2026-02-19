@@ -399,6 +399,7 @@ struct MainView: View {
     }
     
     private func setupAlarmObserver() {
+        // 闹钟触发通知
         NotificationCenter.default.addObserver(
             forName: .alarmTriggered,
             object: nil,
@@ -407,6 +408,49 @@ struct MainView: View {
             if let recordId = notification.userInfo?["recordId"] as? UUID {
                 triggeredRecordId = recordId
                 showAlarmRinging = true
+            }
+        }
+        
+        // 从通知停止闹钟
+        NotificationCenter.default.addObserver(
+            forName: .stopAlarmFromNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let recordId = notification.userInfo?["recordId"] as? UUID {
+                self.stopAlarmFromNotification(recordId: recordId)
+            }
+        }
+        
+        // 从通知延迟闹钟
+        NotificationCenter.default.addObserver(
+            forName: .snoozeAlarmFromNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let recordId = notification.userInfo?["recordId"] as? UUID {
+                self.snoozeAlarmFromNotification(recordId: recordId)
+            }
+        }
+    }
+    
+    /// 从通知停止闹钟
+    private func stopAlarmFromNotification(recordId: UUID) {
+        if var record = dataStore.sleepRecords.first(where: { $0.id == recordId }) {
+            record.actualWakeTime = Date()
+            _ = dataStore.updateSleepRecord(record)
+            
+            // 显示反馈
+            showWakeUpFeedback = true
+        }
+    }
+    
+    /// 从通知延迟闹钟
+    private func snoozeAlarmFromNotification(recordId: UUID) {
+        if var record = dataStore.sleepRecords.first(where: { $0.id == recordId }) {
+            record.snoozeCount += 1
+            if dataStore.updateSleepRecord(record) {
+                notificationManager.scheduleSnoozeAlarm(for: record.id, snoozeCount: record.snoozeCount)
             }
         }
     }
