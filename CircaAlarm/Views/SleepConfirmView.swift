@@ -21,6 +21,7 @@ struct SleepConfirmView: View {
     @State private var calculationResult: SleepCalculationResult?
     @State private var showInsufficientTimeWarning = false
     @State private var isScheduling = false
+    @State private var showDelayOptions = false
     
     // 入睡延迟选项（分钟）
     let delayOptions: [TimeInterval] = [300, 600, 900, 1200, 1500, 1800] // 5, 10, 15, 20, 25, 30分钟
@@ -39,26 +40,24 @@ struct SleepConfirmView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
+                        // 主要计算结果展示
+                        mainResultSection
+                        
                         // 时间轴可视化
                         timelineSection
-                        
-                        // 计算结果展示
-                        if let result = calculationResult {
-                            calculationResultSection(result: result)
-                        }
-                        
-                        // 入睡延迟选择
-                        delaySelectionSection
                         
                         // 警告信息
                         if showInsufficientTimeWarning {
                             warningSection
                         }
                         
+                        // 入睡延迟设置（可折叠）
+                        delaySettingSection
+                        
                         Spacer(minLength: 40)
                         
-                        // 确认按钮
-                        actionButtons
+                        // 开始睡眠按钮
+                        startSleepButton
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 20)
@@ -87,36 +86,116 @@ struct SleepConfirmView: View {
         .preferredColorScheme(.dark)
     }
     
+    // MARK: - 主要结果展示
+    private var mainResultSection: some View {
+        VStack(spacing: 20) {
+            if let result = calculationResult {
+                if result.isValid {
+                    // 最佳唤醒时间大字体显示
+                    VStack(spacing: 8) {
+                        Text("预计最佳唤醒时间")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white.opacity(0.7))
+                        
+                        Text(result.optimalWakeTimeDisplay)
+                            .font(.system(size: 64, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(red: 0.2, green: 0.78, blue: 0.35))
+                        
+                        Text(result.earlierTimeDisplay)
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    
+                    // 周期数和睡眠时长
+                    HStack(spacing: 40) {
+                        VStack(spacing: 4) {
+                            Text(result.cyclesDisplay)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("完整睡眠周期")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        
+                        Divider()
+                            .background(Color.white.opacity(0.2))
+                            .frame(height: 40)
+                        
+                        VStack(spacing: 4) {
+                            Text(result.sleepDurationDisplay)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("预计睡眠时长")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                    }
+                } else {
+                    // 不足一个周期
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.orange)
+                        
+                        Text("剩余时间不足完整周期")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.orange)
+                        
+                        Text("系统将使用兜底策略在预设时间响铃")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                    }
+                }
+            }
+        }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.ultraThinMaterial)
+        )
+    }
+    
     // MARK: - 时间轴可视化
     private var timelineSection: some View {
-        VStack(spacing: 16) {
-            // 当前时间
+        VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("现在")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.5))
                     Text(formatTime(currentTime))
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.white)
                 }
                 
                 Spacer()
+                
+                if let result = calculationResult {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("预计入睡")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.5))
+                        Text(formatTime(result.estimatedFallAsleepTime))
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                }
             }
             
             // 时间线
             HStack(spacing: 8) {
                 Circle()
                     .fill(Color(red: 0.35, green: 0.78, blue: 0.98))
-                    .frame(width: 12, height: 12)
+                    .frame(width: 10, height: 10)
                 
                 Rectangle()
                     .fill(Color.white.opacity(0.3))
                     .frame(height: 2)
                 
                 Image(systemName: "moon.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.6))
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
                 
                 Rectangle()
                     .fill(Color.white.opacity(0.3))
@@ -124,141 +203,103 @@ struct SleepConfirmView: View {
                 
                 if let result = calculationResult, result.isValid {
                     Circle()
-                        .fill(Color.green)
-                        .frame(width: 12, height: 12)
+                        .fill(Color(red: 0.2, green: 0.78, blue: 0.35))
+                        .frame(width: 10, height: 10)
                 } else {
                     Circle()
                         .fill(Color.orange)
-                        .frame(width: 12, height: 12)
+                        .frame(width: 10, height: 10)
                 }
             }
             
-            // 预计入睡时间
-            HStack {
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("预计入睡")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.6))
-                    Text(formatTime(currentTime.addingTimeInterval(fallAsleepDelay)))
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.white)
+            if let result = calculationResult {
+                HStack {
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("目标起床")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.5))
+                        Text(result.targetWakeTimeDisplay)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                    }
                 }
             }
         }
-        .padding(20)
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(.ultraThinMaterial)
         )
     }
     
-    // MARK: - 计算结果展示
-    private func calculationResultSection(result: SleepCalculationResult) -> some View {
-        VStack(spacing: 16) {
-            if result.isValid {
-                // 最佳唤醒时间
-                VStack(spacing: 8) {
-                    Text("预计最佳唤醒时间")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.7))
-                    
-                    Text(result.optimalWakeTimeDisplay)
-                        .font(.system(size: 56, weight: .bold, design: .rounded))
-                        .foregroundColor(Color(red: 0.2, green: 0.78, blue: 0.35))
-                    
-                    Text(result.earlierTimeDisplay)
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.6))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(8)
+    // MARK: - 入睡延迟设置（折叠式）
+    private var delaySettingSection: some View {
+        VStack(spacing: 0) {
+            // 标题行（可点击展开/折叠）
+            Button(action: {
+                withAnimation(.spring()) {
+                    showDelayOptions.toggle()
                 }
-                
-                Divider()
-                    .background(Color.white.opacity(0.2))
-                
-                // 周期数和睡眠时长
-                HStack(spacing: 30) {
-                    VStack(spacing: 4) {
-                        Text(result.cyclesDisplay)
-                            .font(.system(size: 18, weight: .semibold))
+            }) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("入睡所需时间")
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white)
-                        Text("完整睡眠周期")
-                            .font(.system(size: 12))
+                        
+                        Text("\(Int(fallAsleepDelay / 60))分钟（点击调整）")
+                            .font(.system(size: 13))
                             .foregroundColor(.white.opacity(0.6))
                     }
                     
+                    Spacer()
+                    
+                    Image(systemName: showDelayOptions ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .padding(16)
+            }
+            
+            // 展开的选项
+            if showDelayOptions {
+                VStack(spacing: 12) {
                     Divider()
                         .background(Color.white.opacity(0.2))
-                        .frame(height: 40)
                     
-                    VStack(spacing: 4) {
-                        Text(result.sleepDurationDisplay)
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                        Text("预计睡眠时长")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.6))
-                    }
-                }
-            } else {
-                // 不足一个周期
-                VStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(.orange)
+                    Text("您通常躺下后多久能睡着？")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    Text("剩余时间不足完整周期")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.orange)
-                    
-                    Text("系统将使用兜底策略在预设时间响铃")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                }
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-        )
-    }
-    
-    // MARK: - 入睡延迟选择
-    private var delaySelectionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("入睡所需时间")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white)
-            
-            Text("您通常躺下后多久能睡着？")
-                .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.6))
-            
-            // 分段选择器
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
-                ForEach(delayOptions, id: \.self) { delay in
-                    DelayOptionButton(
-                        delay: delay,
-                        isSelected: fallAsleepDelay == delay,
-                        action: {
-                            withAnimation(.spring()) {
-                                fallAsleepDelay = delay
-                                #if canImport(UIKit)
-                                HapticManager.shared.impact(style: .light)
-                                #endif
-                            }
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
+                        ForEach(delayOptions, id: \.self) { delay in
+                            DelayOptionButton(
+                                delay: delay,
+                                isSelected: fallAsleepDelay == delay,
+                                action: {
+                                    withAnimation(.spring()) {
+                                        fallAsleepDelay = delay
+                                        #if canImport(UIKit)
+                                        HapticManager.shared.impact(style: .light)
+                                        #endif
+                                    }
+                                }
+                            )
                         }
-                    )
+                    }
+                    
+                    Text("此设置仅本次生效，默认可在设置中修改")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.4))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
         }
-        .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(.ultraThinMaterial)
@@ -290,43 +331,48 @@ struct SleepConfirmView: View {
         )
     }
     
-    // MARK: - 操作按钮
-    private var actionButtons: some View {
-        VStack(spacing: 12) {
-            Button(action: {
-                startSleep()
-            }) {
-                HStack {
-                    if isScheduling {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "bed.double.fill")
+    // MARK: - 开始睡眠按钮
+    private var startSleepButton: some View {
+        Button(action: {
+            startSleep()
+        }) {
+            HStack(spacing: 12) {
+                if isScheduling {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.0)
+                } else {
+                    Image(systemName: "bed.double.fill")
+                        .font(.system(size: 20))
+                    
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("开始睡眠")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 20, weight: .bold))
+                        
+                        if let result = calculationResult, result.isValid {
+                            Text("将在 \(result.optimalWakeTimeDisplay) 叫醒您")
+                                .font(.system(size: 13))
+                                .opacity(0.9)
+                        } else {
+                            Text("将在预设时间响铃")
+                                .font(.system(size: 13))
+                                .opacity(0.9)
+                        }
                     }
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(red: 0.2, green: 0.78, blue: 0.35))
-                )
             }
-            .disabled(isScheduling)
-            
-            Button(action: {
-                dismiss()
-            }) {
-                Text("取消")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(red: 0.2, green: 0.78, blue: 0.35))
+                    .shadow(color: Color(red: 0.2, green: 0.78, blue: 0.35).opacity(0.4),
+                            radius: 15, x: 0, y: 8)
+            )
         }
+        .disabled(isScheduling)
+        .buttonStyle(ScaleButtonStyle())
     }
     
     // MARK: - 辅助方法
@@ -396,7 +442,6 @@ struct SleepConfirmView: View {
             dismiss()
         } else {
             isScheduling = false
-            // 显示错误提示
         }
     }
 }
@@ -435,6 +480,15 @@ struct DelayOptionButton: View {
         } else {
             return Color.white.opacity(0.1)
         }
+    }
+}
+
+// MARK: - 按钮缩放效果
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
