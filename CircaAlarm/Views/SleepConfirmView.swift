@@ -483,15 +483,6 @@ struct DelayOptionButton: View {
     }
 }
 
-// MARK: - 按钮缩放效果
-struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
 // MARK: - 预览
 struct SleepConfirmView_Previews: PreviewProvider {
     static var previews: some View {
