@@ -238,7 +238,7 @@ struct SettingsView: View {
                 Label("确保系统音量和通知音量已开启", systemImage: "speaker.wave.3.fill")
                     .font(.system(size: 14))
                 
-                Label("在设置中允许"重要通知"以突破静音模式", systemImage: "bell.badge.fill")
+                Label("在设置中允许「重要通知」以突破静音模式", systemImage: "bell.badge.fill")
                     .font(.system(size: 14))
                 
                 Label("闹钟响铃时可在通知上直接操作，无需打开应用", systemImage: "hand.tap.fill")
