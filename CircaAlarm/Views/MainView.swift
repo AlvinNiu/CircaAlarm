@@ -18,7 +18,18 @@ struct MainView: View {
     @State private var showSettings = false
     @State private var showHistory = false
     @State private var showAlarmRinging = false
+    @State private var showWakeUpFeedback = false
     @State private var triggeredRecordId: UUID?
+    
+    // 当前进行中的睡眠记录
+    var currentSleepRecord: SleepRecord? {
+        dataStore.getTodayUnfinishedRecord()
+    }
+    
+    // 是否正在睡眠中
+    var isSleeping: Bool {
+        currentSleepRecord != nil
+    }
     
     // 定时器，每秒更新当前时间
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -35,13 +46,21 @@ struct MainView: View {
                     
                     Spacer()
                     
-                    // 中部：明日预设起床时间卡片
-                    targetWakeTimeCard
+                    // 中部：明日预设起床时间卡片或睡眠中卡片
+                    if isSleeping {
+                        sleepingStatusCard
+                    } else {
+                        targetWakeTimeCard
+                    }
                     
                     Spacer()
                     
-                    // 核心按钮："我要睡了"
-                    sleepButton
+                    // 核心按钮：根据状态显示不同按钮
+                    if isSleeping {
+                        wakeUpButton
+                    } else {
+                        sleepButton
+                    }
                     
                     Spacer()
                     
@@ -83,10 +102,20 @@ struct MainView: View {
                 AlarmRingingView(recordId: recordId)
             }
         }
+        .sheet(isPresented: $showWakeUpFeedback) {
+            if let record = currentSleepRecord {
+                QuickFeedbackView(record: record)
+            }
+        }
         #else
         .fullScreenCover(isPresented: $showAlarmRinging) {
             if let recordId = triggeredRecordId {
                 AlarmRingingView(recordId: recordId)
+            }
+        }
+        .fullScreenCover(isPresented: $showWakeUpFeedback) {
+            if let record = currentSleepRecord {
+                QuickFeedbackView(record: record)
             }
         }
         #endif
@@ -147,6 +176,40 @@ struct MainView: View {
         .padding(.horizontal, 20)
     }
     
+    // MARK: - 睡眠中状态卡片
+    private var sleepingStatusCard: some View {
+        VStack(spacing: 12) {
+            if let record = currentSleepRecord {
+                Text("正在睡眠中...")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                
+                Text("预计 \(formatTime(record.plannedOptimalWakeTime ?? record.targetWakeTime)) 醒来")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.white)
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "moon.fill")
+                        .font(.system(size: 12))
+                    Text("已睡 \(sleepDurationString(from: record.bedTimeClicked))")
+                        .font(.system(size: 14))
+                }
+                .foregroundColor(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(12)
+            }
+        }
+        .padding(.vertical, 30)
+        .padding(.horizontal, 40)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.ultraThinMaterial)
+        )
+        .padding(.horizontal, 20)
+    }
+    
     // MARK: - "我要睡了"按钮
     private var sleepButton: some View {
         Button(action: {
@@ -184,6 +247,51 @@ struct MainView: View {
                         .foregroundColor(.white)
                     
                     Text("点击开始睡眠")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+    
+    // MARK: - "我醒了"按钮
+    private var wakeUpButton: some View {
+        Button(action: {
+            #if canImport(UIKit)
+            HapticManager.shared.impact(style: .heavy)
+            #endif
+            showWakeUpFeedback = true
+        }) {
+            ZStack {
+                // 按钮背景渐变 - 使用日出/黎明的橙黄色调
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 1.0, green: 0.6, blue: 0.3),   // 橙黄色
+                                Color(red: 1.0, green: 0.4, blue: 0.2)    // 深橙色
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 100
+                        )
+                    )
+                    .frame(width: 200, height: 200)
+                    .shadow(color: Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.5),
+                            radius: 20, x: 0, y: 10)
+                
+                // 脉动动画层
+                PulseAnimationView()
+                    .frame(width: 200, height: 200)
+                
+                // 按钮文字
+                VStack(spacing: 4) {
+                    Text("我醒了")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("点击结束睡眠")
                         .font(.system(size: 14))
                         .foregroundColor(.white.opacity(0.8))
                 }
@@ -231,6 +339,25 @@ struct MainView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
+    }
+    
+    private func formatTime(_ date: Date?) -> String {
+        guard let date = date else { return "--:--" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+    
+    private func sleepDurationString(from bedTime: Date) -> String {
+        let duration = Date().timeIntervalSince(bedTime)
+        let hours = Int(duration / 3600)
+        let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
+        
+        if hours > 0 {
+            return "\(hours)小时\(minutes)分钟"
+        } else {
+            return "\(minutes)分钟"
+        }
     }
     
     private var targetWakeTimeString: String {
@@ -282,6 +409,165 @@ struct MainView: View {
                 showAlarmRinging = true
             }
         }
+    }
+}
+
+// MARK: - 快速反馈视图（简化版舒适度反馈）
+struct QuickFeedbackView: View {
+    @State var record: SleepRecord
+    @StateObject private var dataStore = DataStore.shared
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(red: 0.05, green: 0.05, blue: 0.15)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 40) {
+                    // 标题
+                    VStack(spacing: 12) {
+                        Text("早上好！")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundColor(.white)
+                        
+                        Text("您睡了 \(sleepDurationText)")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    .padding(.top, 60)
+                    
+                    Spacer()
+                    
+                    // 舒适度选择
+                    VStack(spacing: 20) {
+                        Text("这次醒来感觉怎么样？")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        // 舒适按钮
+                        FeedbackButton(
+                            icon: "😊",
+                            title: "很舒适",
+                            subtitle: "醒来神清气爽",
+                            color: Color(red: 0.2, green: 0.78, blue: 0.35),
+                            action: {
+                                completeWakeUp(comfortLevel: .comfortable)
+                            }
+                        )
+                        
+                        // 一般按钮
+                        FeedbackButton(
+                            icon: "😐",
+                            title: "一般般",
+                            subtitle: "正常醒来",
+                            color: Color.orange,
+                            action: {
+                                completeWakeUp(comfortLevel: .skipped)
+                            }
+                        )
+                        
+                        // 不舒服按钮
+                        FeedbackButton(
+                            icon: "😣",
+                            title: "不舒服",
+                            subtitle: "醒来困难，很困",
+                            color: Color.red,
+                            action: {
+                                completeWakeUp(comfortLevel: .uncomfortable)
+                            }
+                        )
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 30)
+            }
+            .navigationTitle("醒来反馈")
+            #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("跳过") {
+                        completeWakeUp(comfortLevel: .skipped)
+                    }
+                    .foregroundColor(.white.opacity(0.6))
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+    
+    private var sleepDurationText: String {
+        let duration = Date().timeIntervalSince(record.bedTimeClicked)
+        let hours = Int(duration / 3600)
+        let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
+        
+        if hours > 0 {
+            return "\(hours)小时\(minutes)分钟"
+        } else {
+            return "\(minutes)分钟"
+        }
+    }
+    
+    private func completeWakeUp(comfortLevel: ComfortLevel) {
+        // 更新睡眠记录
+        var updatedRecord = record
+        updatedRecord.actualWakeTime = Date()
+        updatedRecord.comfortLevel = comfortLevel
+        
+        _ = dataStore.updateSleepRecord(updatedRecord)
+        
+        // 取消所有闹钟通知
+        NotificationManager.shared.cancelAlarms(for: record.id)
+        
+        // 关闭反馈界面
+        dismiss()
+    }
+}
+
+// MARK: - 反馈按钮
+struct FeedbackButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Text(icon)
+                    .font(.system(size: 40))
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(color.opacity(0.2))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(color.opacity(0.5), lineWidth: 2)
+                    )
+            )
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 }
 
