@@ -182,6 +182,23 @@ struct SettingsView: View {
     // MARK: - 闹钟偏好
     private var alarmPreferencesSection: some View {
         Section {
+            // 铃声测试
+            #if !os(macOS)
+            Button(action: {
+                AlarmSoundManager.shared.playTestSound()
+            }) {
+                HStack {
+                    Image(systemName: "speaker.wave.2.fill")
+                    Text("测试铃声")
+                    Spacer()
+                    Text("点击播放")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .foregroundColor(.white)
+            #endif
+            
             // 最大延迟次数
             Stepper("最大延迟次数: \(maxSnoozeCount)次", value: $maxSnoozeCount, in: 1...5)
             

@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 #if canImport(AVFoundation) && !os(macOS)
 import AVFoundation
+import AudioToolbox
 #endif
 #if canImport(UIKit)
 import UIKit
@@ -20,6 +21,7 @@ struct AlarmRingingView: View {
     
     @StateObject private var dataStore = DataStore.shared
     @StateObject private var notificationManager = NotificationManager.shared
+    @StateObject private var soundManager = AlarmSoundManager.shared
     
     @Environment(\.dismiss) private var dismiss
     
@@ -27,9 +29,6 @@ struct AlarmRingingView: View {
     @State private var record: SleepRecord?
     @State private var remainingSnoozeCount: Int = 0
     @State private var showFeedback = false
-    #if canImport(AVFoundation) && !os(macOS)
-    @State private var audioPlayer: AVAudioPlayer?
-    #endif
     
     // 定时器更新当前时间
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -65,14 +64,13 @@ struct AlarmRingingView: View {
         }
         .onAppear {
             loadRecord()
-            setupAudioSession()
-            playAlarmSound()
+            startAlarm()
         }
         .onReceive(timer) { _ in
             currentTime = Date()
         }
         .onDisappear {
-            stopAlarmSound()
+            stopAlarm()
         }
         .sheet(isPresented: $showFeedback) {
             if let record = record {
@@ -140,6 +138,20 @@ struct AlarmRingingView: View {
                     .foregroundColor(.white.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
+                
+                // 音量指示器
+                if soundManager.isPlaying {
+                    VStack(spacing: 8) {
+                        Text("音量渐强中...")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.6))
+                        
+                        ProgressView(value: soundManager.currentVolume)
+                            .progressViewStyle(LinearProgressViewStyle(tint: .white))
+                            .frame(width: 150)
+                    }
+                    .padding(.top, 10)
+                }
             }
         }
     }
@@ -263,42 +275,24 @@ struct AlarmRingingView: View {
         }
     }
     
-    // MARK: - 音频处理
+    // MARK: - 闹钟控制
     
-    private func setupAudioSession() {
-        #if canImport(AVFoundation) && !os(macOS)
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
-        } catch {
-            print("音频会话设置失败: \(error)")
-        }
+    private func startAlarm() {
+        #if canImport(UIKit) && !os(macOS)
+        // 播放闹钟声音（带渐强效果）
+        soundManager.playAlarmSound(fadeIn: dataStore.settings.volumeFadeIn, vibrate: dataStore.settings.vibrationEnabled)
         #endif
     }
-    
-    private func playAlarmSound() {
-        #if canImport(AVFoundation) && !os(macOS)
-        // 播放系统默认闹钟声音
-        // 实际项目中可以加载自定义铃声
-        // 这里简化处理，使用系统声音
-        #endif
-    }
-    
-    private func stopAlarmSound() {
-        #if canImport(AVFoundation) && !os(macOS)
-        audioPlayer?.stop()
-        audioPlayer = nil
-        #endif
-    }
-    
-    // MARK: - 闹钟操作
     
     private func stopAlarm() {
         #if canImport(UIKit)
+        #if canImport(UIKit)
         HapticManager.shared.impact(style: .heavy)
         #endif
-        stopAlarmSound()
+        #endif
+        
+        // 停止声音
+        soundManager.stopAlarmSound()
         
         // 更新记录
         if var record = record {
@@ -315,7 +309,9 @@ struct AlarmRingingView: View {
         #if canImport(UIKit)
         HapticManager.shared.impact(style: .medium)
         #endif
-        stopAlarmSound()
+        
+        // 停止声音
+        soundManager.stopAlarmSound()
         
         guard var record = record else { return }
         
