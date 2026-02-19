@@ -279,17 +279,26 @@ struct AlarmRingingView: View {
         HapticManager.shared.impact(style: .heavy)
         #endif
         
-        // 更新记录
-        if var record = record {
-            record.actualWakeTime = Date()
-            _ = dataStore.updateSleepRecord(record)
-            self.record = record
+        guard var record = record else { return }
+        
+        let wakeTime = Date()
+        let sleepDuration = wakeTime.timeIntervalSince(record.bedTimeClicked)
+        
+        // 如果睡眠时长小于1小时，删除记录不保存
+        if sleepDuration < 3600 {
+            _ = dataStore.deleteSleepRecord(id: record.id)
+            notificationManager.cancelAlarms(for: record.id)
+            dismiss()
+            return
         }
         
+        // 更新记录
+        record.actualWakeTime = wakeTime
+        _ = dataStore.updateSleepRecord(record)
+        self.record = record
+        
         // 取消通知
-        if let record = record {
-            notificationManager.cancelAlarms(for: record.id)
-        }
+        notificationManager.cancelAlarms(for: record.id)
         
         // 显示反馈界面
         showFeedback = true

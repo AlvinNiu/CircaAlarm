@@ -176,6 +176,8 @@ struct FeedbackView: View {
         updatedRecord.comfortLevel = level
         
         if dataStore.updateSleepRecord(updatedRecord) {
+            // 确保取消所有闹钟通知
+            NotificationManager.shared.cancelAlarms(for: record.id)
             dismiss()
         }
     }

@@ -230,16 +230,25 @@ class NotificationManager: NSObject, ObservableObject {
     
     /// 取消特定记录的闹钟
     func cancelAlarms(for recordId: UUID) {
-        // 移除待发送的通知
-        var identifiers: [String] = []
-        for i in 0..<totalNotifications {
-            identifiers.append("alarm_\(recordId.uuidString)_\(i)")
-            identifiers.append("snooze_\(recordId.uuidString)_\(i)")
+        // 确保在主线程执行
+        DispatchQueue.main.async {
+            // 移除待发送的通知
+            var identifiers: [String] = []
+            for i in 0..<self.totalNotifications {
+                identifiers.append("alarm_\(recordId.uuidString)_\(i)")
+                identifiers.append("snooze_\(recordId.uuidString)_\(i)")
+            }
+            
+            print("正在取消闹钟，记录ID: \(recordId.uuidString)")
+            print("要取消的通知标识符: \(identifiers)")
+            
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
+            
+            // 移除已显示的通知
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+            
+            print("闹钟已取消")
         }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
-        
-        // 移除已显示的通知
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
     }
     
     /// 获取待处理的通知

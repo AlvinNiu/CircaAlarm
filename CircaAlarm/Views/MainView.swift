@@ -437,7 +437,19 @@ struct MainView: View {
     /// 从通知停止闹钟
     private func stopAlarmFromNotification(recordId: UUID) {
         if var record = dataStore.sleepRecords.first(where: { $0.id == recordId }) {
-            record.actualWakeTime = Date()
+            let wakeTime = Date()
+            let sleepDuration = wakeTime.timeIntervalSince(record.bedTimeClicked)
+            
+            // 先取消所有闹钟通知
+            NotificationManager.shared.cancelAlarms(for: recordId)
+            
+            // 如果睡眠时长小于1小时，删除记录不保存
+            if sleepDuration < 3600 {
+                _ = dataStore.deleteSleepRecord(id: recordId)
+                return
+            }
+            
+            record.actualWakeTime = wakeTime
             _ = dataStore.updateSleepRecord(record)
             
             // 显示反馈
@@ -556,15 +568,25 @@ struct QuickFeedbackView: View {
     }
     
     private func completeWakeUp(comfortLevel: ComfortLevel) {
+        let wakeTime = Date()
+        let sleepDuration = wakeTime.timeIntervalSince(record.bedTimeClicked)
+        
+        // 先取消所有闹钟通知（无论是否保存记录都要取消）
+        NotificationManager.shared.cancelAlarms(for: record.id)
+        
+        // 如果睡眠时长小于1小时，删除记录不保存
+        if sleepDuration < 3600 {
+            _ = dataStore.deleteSleepRecord(id: record.id)
+            dismiss()
+            return
+        }
+        
         // 更新睡眠记录
         var updatedRecord = record
-        updatedRecord.actualWakeTime = Date()
+        updatedRecord.actualWakeTime = wakeTime
         updatedRecord.comfortLevel = comfortLevel
         
         _ = dataStore.updateSleepRecord(updatedRecord)
-        
-        // 取消所有闹钟通知
-        NotificationManager.shared.cancelAlarms(for: record.id)
         
         // 关闭反馈界面
         dismiss()
