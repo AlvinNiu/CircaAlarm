@@ -19,8 +19,8 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // 2秒后切换到主界面
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            // 1秒后切换到主界面
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 withAnimation(.easeOut(duration: 0.5)) {
                     isActive = true
                 }
