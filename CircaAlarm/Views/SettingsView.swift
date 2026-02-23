@@ -205,6 +205,9 @@ struct SettingsView: View {
     private var dataManagementSection: some View {
         Section {
             Button(action: {
+                #if canImport(UIKit)
+                HapticManager.shared.impact(style: .light)
+                #endif
                 checkPendingNotifications()
             }) {
                 HStack {
@@ -219,6 +222,9 @@ struct SettingsView: View {
             .foregroundColor(.white)
             
             Button(action: {
+                #if canImport(UIKit)
+                HapticManager.shared.impact(style: .light)
+                #endif
                 testNotification()
             }) {
                 HStack {
