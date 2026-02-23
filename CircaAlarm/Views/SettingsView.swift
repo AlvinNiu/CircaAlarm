@@ -396,7 +396,8 @@ struct SettingsView: View {
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                let rootVC = windowScene.windows.first?.rootViewController {
                 activityVC.popoverPresentationController?.sourceView = rootVC.view
-                activityVC.popoverPresentationController?.sourceRect = CGRect(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY, width: 0, height: 0)
+                let screenBounds = windowScene.screen.bounds
+                activityVC.popoverPresentationController?.sourceRect = CGRect(x: screenBounds.midX, y: screenBounds.midY, width: 0, height: 0)
                 rootVC.present(activityVC, animated: true)
             }
         } catch {
