@@ -26,6 +26,10 @@ struct SettingsView: View {
     @State private var volumeFadeIn: Bool
     @State private var vibrationEnabled: Bool
     
+    // 导出文件路径
+    @State private var exportFilePath: URL?
+    @State private var showShareSheet = false
+    
     let delayOptions: [TimeInterval] = [300, 600, 900, 1200, 1500, 1800]
     let windowOptions: [TimeInterval] = [300, 600, 900, 1200, 1800]
     
@@ -103,6 +107,11 @@ struct SettingsView: View {
             }
             #endif
             .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let fileURL = exportFilePath {
+                ShareSheet(url: fileURL)
+            }
         }
     }
     
@@ -239,22 +248,46 @@ struct SettingsView: View {
             }
             .foregroundColor(.white)
             
-            Button(action: {
-                #if canImport(UIKit)
-                HapticManager.shared.impact(style: .light)
-                #endif
-                exportData()
-            }) {
-                HStack {
-                    Image(systemName: "square.and.arrow.up")
-                    Text("导出数据")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+            // 使用 ShareLink 显示分享面板（iOS 16+）
+            if #available(iOS 16.0, *) {
+                ShareLink(
+                    item: exportFilePath ?? URL(fileURLWithPath: ""),
+                    preview: SharePreview("睡眠记录", image: Image(systemName: "doc.text"))
+                ) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("导出数据")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .foregroundColor(.white)
+                .disabled(exportFilePath == nil)
+                .onAppear {
+                    // 准备导出文件
+                    prepareExportData()
+                }
+            } else {
+                // iOS 15 及以下使用旧的导出方式
+                Button(action: {
+                    #if canImport(UIKit)
+                    HapticManager.shared.impact(style: .light)
+                    #endif
+                    exportDataLegacy()
+                }) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("导出数据")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .foregroundColor(.white)
             }
-            .foregroundColor(.white)
             
             Button(action: {
                 #if canImport(UIKit)
@@ -356,7 +389,48 @@ struct SettingsView: View {
         dataStore.saveSettings()
     }
     
-    private func exportData() {
+    // 准备导出数据（用于 ShareLink）
+    private func prepareExportData() {
+        let records = dataStore.sleepRecords
+        guard !records.isEmpty else { return }
+        
+        // 创建 CSV 内容
+        var csv = "日期,就寝时间,预计入睡,目标起床,实际响铃,实际起床,睡眠时长(小时),延迟次数,舒适度\n"
+        
+        for record in records {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "HH:mm"
+            
+            let date = dateFormatter.string(from: record.date)
+            let bedTime = timeFormatter.string(from: record.bedTimeClicked)
+            let estimatedSleep = timeFormatter.string(from: record.estimatedFallAsleepTime)
+            let targetWake = timeFormatter.string(from: record.targetWakeTime)
+            let actualAlarm = timeFormatter.string(from: record.actualAlarmTime)
+            let actualWake = record.actualWakeTime.map { timeFormatter.string(from: $0) } ?? "未记录"
+            let duration = String(format: "%.2f", record.sleepDurationHours ?? 0)
+            let snooze = "\(record.snoozeCount)"
+            let comfort = record.comfortLevel?.displayName ?? "未评价"
+            
+            csv += "\(date),\(bedTime),\(estimatedSleep),\(targetWake),\(actualAlarm),\(actualWake),\(duration),\(snooze),\(comfort)\n"
+        }
+        
+        // 创建临时文件
+        let filename = "CircaAlarm_睡眠记录.csv"
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        
+        do {
+            try csv.write(to: path, atomically: true, encoding: .utf8)
+            exportFilePath = path
+        } catch {
+            print("导出失败: \(error)")
+        }
+    }
+    
+    // iOS 15 及以下版本的导出方式
+    private func exportDataLegacy() {
         let records = dataStore.sleepRecords
         
         // 创建 CSV 内容
@@ -383,23 +457,15 @@ struct SettingsView: View {
         }
         
         // 创建临时文件
-        let filename = "CircaAlarm_睡眠记录_\(Date().timeIntervalSince1970).csv"
+        let filename = "CircaAlarm_睡眠记录.csv"
         let path = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
         
         do {
             try csv.write(to: path, atomically: true, encoding: .utf8)
             
             // 显示分享面板
-            let activityVC = UIActivityViewController(activityItems: [path], applicationActivities: nil)
-            
-            // 获取当前窗口的 root view controller
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootVC = windowScene.windows.first?.rootViewController {
-                activityVC.popoverPresentationController?.sourceView = rootVC.view
-                let screenBounds = windowScene.screen.bounds
-                activityVC.popoverPresentationController?.sourceRect = CGRect(x: screenBounds.midX, y: screenBounds.midY, width: 0, height: 0)
-                rootVC.present(activityVC, animated: true)
-            }
+            showShareSheet = true
+            exportFilePath = path
         } catch {
             print("导出失败: \(error)")
         }
@@ -451,6 +517,18 @@ struct SettingsView: View {
             }
         }
     }
+}
+
+// MARK: - 分享面板（iOS 15 兼容）
+struct ShareSheet: UIViewControllerRepresentable {
+    let url: URL
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        return activityVC
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - 预览
