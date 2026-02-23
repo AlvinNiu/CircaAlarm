@@ -8,6 +8,7 @@
 import SwiftUI
 import Combine
 import UserNotifications
+import UIKit
 
 // MARK: - 设置页
 struct SettingsView: View {
@@ -239,6 +240,9 @@ struct SettingsView: View {
             .foregroundColor(.white)
             
             Button(action: {
+                #if canImport(UIKit)
+                HapticManager.shared.impact(style: .light)
+                #endif
                 exportData()
             }) {
                 HStack {
@@ -253,6 +257,9 @@ struct SettingsView: View {
             .foregroundColor(.white)
             
             Button(action: {
+                #if canImport(UIKit)
+                HapticManager.shared.impact(style: .light)
+                #endif
                 clearAllData()
             }) {
                 HStack {
@@ -350,10 +357,51 @@ struct SettingsView: View {
     }
     
     private func exportData() {
-        // 实现数据导出功能
-        _ = dataStore.sleepRecords
-        // 转换为 CSV 或 JSON
-        // 使用 UIActivityViewController 分享
+        let records = dataStore.sleepRecords
+        
+        // 创建 CSV 内容
+        var csv = "日期,就寝时间,预计入睡,目标起床,实际响铃,实际起床,睡眠时长(小时),延迟次数,舒适度\n"
+        
+        for record in records {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "HH:mm"
+            
+            let date = dateFormatter.string(from: record.date)
+            let bedTime = timeFormatter.string(from: record.bedTimeClicked)
+            let estimatedSleep = timeFormatter.string(from: record.estimatedFallAsleepTime)
+            let targetWake = timeFormatter.string(from: record.targetWakeTime)
+            let actualAlarm = timeFormatter.string(from: record.actualAlarmTime)
+            let actualWake = record.actualWakeTime.map { timeFormatter.string(from: $0) } ?? "未记录"
+            let duration = String(format: "%.2f", record.sleepDurationHours ?? 0)
+            let snooze = "\(record.snoozeCount)"
+            let comfort = record.comfortLevel?.displayName ?? "未评价"
+            
+            csv += "\(date),\(bedTime),\(estimatedSleep),\(targetWake),\(actualAlarm),\(actualWake),\(duration),\(snooze),\(comfort)\n"
+        }
+        
+        // 创建临时文件
+        let filename = "CircaAlarm_睡眠记录_\(Date().timeIntervalSince1970).csv"
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        
+        do {
+            try csv.write(to: path, atomically: true, encoding: .utf8)
+            
+            // 显示分享面板
+            let activityVC = UIActivityViewController(activityItems: [path], applicationActivities: nil)
+            
+            // 获取当前窗口的 root view controller
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                activityVC.popoverPresentationController?.sourceView = rootVC.view
+                activityVC.popoverPresentationController?.sourceRect = CGRect(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY, width: 0, height: 0)
+                rootVC.present(activityVC, animated: true)
+            }
+        } catch {
+            print("导出失败: \(error)")
+        }
     }
     
     private func clearAllData() {
