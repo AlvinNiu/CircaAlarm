@@ -19,7 +19,7 @@ struct MainView: View {
     @State private var showHistory = false
     @State private var showAlarmRinging = false
     @State private var showWakeUpFeedback = false
-    @State private var showTimePicker = false
+    @State private var isEditingWakeTime = false
     @State private var tempWakeTime = Date()
     @State private var triggeredRecordId: UUID?
     
@@ -152,55 +152,96 @@ struct MainView: View {
     
     // MARK: - 预设起床时间卡片
     private var targetWakeTimeCard: some View {
-        Button(action: {
-            // 初始化临时时间为当前设置的时间
-            tempWakeTime = dataStore.settings.getTodayTargetWakeTime()
-            showTimePicker = true
-        }) {
-            VStack(spacing: 12) {
-                HStack(spacing: 4) {
-                    Text("明日预设起床时间")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+        VStack(spacing: 0) {
+            // 点击区域
+            Button(action: {
+                withAnimation(.spring()) {
+                    if isEditingWakeTime {
+                        // 如果正在编辑，点击保存
+                        saveWakeTime(tempWakeTime)
+                        isEditingWakeTime = false
+                    } else {
+                        // 初始化临时时间并展开
+                        tempWakeTime = dataStore.settings.getTodayTargetWakeTime()
+                        isEditingWakeTime = true
+                    }
+                }
+                #if canImport(UIKit)
+                HapticManager.shared.impact(style: .light)
+                #endif
+            }) {
+                VStack(spacing: 12) {
+                    HStack(spacing: 4) {
+                        Text(isEditingWakeTime ? "滑动设置时间" : "明日预设起床时间")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                        
+                        Image(systemName: isEditingWakeTime ? "checkmark.circle.fill" : "chevron.down")
+                            .font(.system(size: 14))
+                            .foregroundColor(isEditingWakeTime ? Color(red: 0.2, green: 0.78, blue: 0.35) : .white.opacity(0.5))
+                    }
                     
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.5))
+                    if !isEditingWakeTime {
+                        Text(targetWakeTimeString)
+                            .font(.system(size: 48, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Text(timeUntilTarget)
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.6))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                    }
                 }
-                
-                Text(targetWakeTimeString)
-                    .font(.system(size: 48, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-                
-                Text(timeUntilTarget)
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.6))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(12)
+                .padding(.vertical, isEditingWakeTime ? 20 : 30)
+                .padding(.horizontal, 40)
             }
-            .padding(.vertical, 30)
-            .padding(.horizontal, 40)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.ultraThinMaterial)
-            )
-            .padding(.horizontal, 20)
-        }
-        .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showTimePicker) {
-            TimePickerSheet(
-                selectedTime: $tempWakeTime,
-                onSave: {
-                    saveWakeTime(tempWakeTime)
-                    showTimePicker = false
-                },
-                onCancel: {
-                    showTimePicker = false
+            .buttonStyle(PlainButtonStyle())
+            
+            // 展开的时间选择器
+            if isEditingWakeTime {
+                VStack(spacing: 16) {
+                    // 显示当前选择的时间
+                    Text(formatTime(tempWakeTime))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(red: 0.2, green: 0.78, blue: 0.35))
+                    
+                    // 滚轮选择器
+                    DatePicker(
+                        "",
+                        selection: $tempWakeTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .colorMultiply(Color(red: 0.2, green: 0.78, blue: 0.35))
+                    .frame(height: 150)
+                    .clipped()
+                    
+                    // 取消按钮
+                    Button(action: {
+                        withAnimation(.spring()) {
+                            isEditingWakeTime = false
+                        }
+                    }) {
+                        Text("取消")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.6))
+                            .padding(.vertical, 8)
+                    }
                 }
-            )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.ultraThinMaterial)
+        )
+        .padding(.horizontal, 20)
     }
     
     /// 保存起床时间
@@ -724,73 +765,6 @@ class HapticManager {
     func impact(style: Int) {}
 }
 #endif
-
-// MARK: - 时间选择器弹窗
-struct TimePickerSheet: View {
-    @Binding var selectedTime: Date
-    let onSave: () -> Void
-    let onCancel: () -> Void
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                Color(red: 0.05, green: 0.05, blue: 0.15)
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 30) {
-                    Text("设置起床时间")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.top, 20)
-                    
-                    // 时间选择器
-                    DatePicker(
-                        "",
-                        selection: $selectedTime,
-                        displayedComponents: .hourAndMinute
-                    )
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-                    .colorMultiply(Color(red: 0.2, green: 0.78, blue: 0.35))
-                    .frame(maxHeight: 200)
-                    
-                    Spacer()
-                    
-                    // 操作按钮
-                    HStack(spacing: 16) {
-                        Button(action: onCancel) {
-                            Text("取消")
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.white.opacity(0.15))
-                                )
-                        }
-                        
-                        Button(action: onSave) {
-                            Text("保存")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color(red: 0.2, green: 0.78, blue: 0.35))
-                                )
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
-                }
-            }
-            .navigationBarHidden(true)
-        }
-        .preferredColorScheme(.dark)
-    }
-}
 
 // MARK: - 预览
 struct MainView_Previews: PreviewProvider {
