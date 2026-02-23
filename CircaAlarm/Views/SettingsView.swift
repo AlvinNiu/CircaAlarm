@@ -30,6 +30,9 @@ struct SettingsView: View {
     @State private var exportFilePath: URL?
     @State private var showShareSheet = false
     
+    // 确认对话框
+    @State private var showClearDataAlert = false
+    
     let delayOptions: [TimeInterval] = [300, 600, 900, 1200, 1500, 1800]
     let windowOptions: [TimeInterval] = [300, 600, 900, 1200, 1800]
     
@@ -112,6 +115,14 @@ struct SettingsView: View {
             if let fileURL = exportFilePath {
                 ShareSheet(url: fileURL)
             }
+        }
+        .alert("确认清除所有数据？", isPresented: $showClearDataAlert) {
+            Button("取消", role: .cancel) {}
+            Button("清除", role: .destructive) {
+                clearAllData()
+            }
+        } message: {
+            Text("此操作将删除所有睡眠记录，数据无法恢复。")
         }
     }
     
@@ -293,7 +304,7 @@ struct SettingsView: View {
                 #if canImport(UIKit)
                 HapticManager.shared.impact(style: .light)
                 #endif
-                clearAllData()
+                showClearDataAlert = true
             }) {
                 HStack {
                     Image(systemName: "trash")
