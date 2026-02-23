@@ -7,10 +7,12 @@
 
 import SwiftUI
 import Combine
+import UserNotifications
 
 // MARK: - 设置页
 struct SettingsView: View {
     @StateObject private var dataStore = DataStore.shared
+    @StateObject private var notificationManager = NotificationManager.shared
     @Environment(\.dismiss) private var dismiss
     
     // 临时设置值
