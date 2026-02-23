@@ -203,6 +203,34 @@ struct SettingsView: View {
     private var dataManagementSection: some View {
         Section {
             Button(action: {
+                checkPendingNotifications()
+            }) {
+                HStack {
+                    Image(systemName: "bell.badge")
+                    Text("查看待处理闹钟")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .foregroundColor(.white)
+            
+            Button(action: {
+                testNotification()
+            }) {
+                HStack {
+                    Image(systemName: "bell.fill")
+                    Text("测试通知（5秒后）")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .foregroundColor(.white)
+            
+            Button(action: {
                 exportData()
             }) {
                 HStack {
@@ -325,6 +353,45 @@ struct SettingsView: View {
         // 这里简化处理，实际应该使用 Alert
         for record in dataStore.sleepRecords {
             _ = dataStore.deleteSleepRecord(id: record.id)
+        }
+    }
+    
+    private func checkPendingNotifications() {
+        notificationManager.getPendingNotifications { requests in
+            print("=== 待处理的通知 ===")
+            print("总数: \(requests.count)")
+            
+            let alarmRequests = requests.filter { $0.identifier.contains("alarm_") || $0.identifier.contains("snooze_") }
+            print("闹钟通知数: \(alarmRequests.count)")
+            
+            for request in alarmRequests {
+                if let trigger = request.trigger as? UNCalendarNotificationTrigger {
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                    if let nextDate = trigger.nextTriggerDate() {
+                        print("  - \(request.identifier): \(dateFormatter.string(from: nextDate))")
+                    }
+                }
+            }
+            print("================")
+        }
+    }
+    
+    private func testNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "⏰ 测试通知"
+        content.body = "这是一条测试通知，5秒后显示"
+        content.sound = UNNotificationSound.default
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        let request = UNNotificationRequest(identifier: "test_\(UUID().uuidString)", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("测试通知调度失败: \(error)")
+            } else {
+                print("测试通知已调度，5秒后显示")
+            }
         }
     }
 }

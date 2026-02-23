@@ -39,19 +39,14 @@ class NotificationManager: NSObject, ObservableObject {
     /// 请求通知权限
     func requestAuthorization() {
         let center = UNUserNotificationCenter.current()
-        // 请求所有需要的权限，包括关键通知
-        center.requestAuthorization(options: [.alert, .sound, .badge, .criticalAlert, .providesAppNotificationSettings]) { granted, error in
+        // 请求基本通知权限
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             DispatchQueue.main.async {
                 self.isAuthorized = granted
                 if let error = error {
                     print("通知权限请求失败: \(error)")
-                }
-                
-                if granted {
-                    // 注册远程通知（虽然不是用推送，但这样可以获得更多权限）
-                    DispatchQueue.main.async {
-                        UIApplication.shared.registerForRemoteNotifications()
-                    }
+                } else {
+                    print("通知权限状态: \(granted ? "已授权" : "未授权")")
                 }
             }
         }
@@ -157,18 +152,16 @@ class NotificationManager: NSObject, ObservableObject {
             content.body = "再睡一会儿，准备起床了！"
         }
         
-        // 使用系统默认的闹钟声音（较长）
-        // iOS 系统支持的声音文件
-        content.sound = UNNotificationSound.defaultCritical
+        // 使用系统默认声音，确保兼容性
+        content.sound = UNNotificationSound.default
         
         // 设置用户信息和类别
         content.userInfo = ["alarmType": type == .optimal ? "optimal" : "fallback", "recordId": recordId.uuidString, "index": index]
         content.categoryIdentifier = "ALARM_CATEGORY"
         
-        // 设置为关键通知（可以突破专注模式和静音）
+        // 设置为时间敏感通知（iOS 15+），在专注模式下也能显示
         if #available(iOS 15.0, *) {
-            content.interruptionLevel = .critical
-            content.relevanceScore = 1.0
+            content.interruptionLevel = .timeSensitive
         }
         
         // 设置通知优先级

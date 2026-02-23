@@ -434,6 +434,24 @@ struct SleepConfirmView: View {
             let alarmType: AlarmType = usedFallback ? .fallback : .optimal
             notificationManager.scheduleAlarm(at: alarmTime, type: alarmType, recordId: record.id)
             
+            // 打印调度信息
+            print("=== 闹钟调度信息 ===")
+            print("记录ID: \(record.id)")
+            print("响铃时间: \(alarmTime)")
+            print("当前时间: \(Date())")
+            print("是否兜底: \(usedFallback)")
+            print("==================")
+            
+            // 检查待处理的通知
+            notificationManager.getPendingNotifications { requests in
+                print("已调度的通知数量: \(requests.count)")
+                for request in requests.prefix(3) {
+                    if let trigger = request.trigger as? UNCalendarNotificationTrigger {
+                        print("通知: \(request.identifier), 触发时间: \(trigger.dateComponents)")
+                    }
+                }
+            }
+            
             // 更新设置中的入睡延迟（记住用户选择）
             dataStore.settings.fallAsleepDelay = fallAsleepDelay
             dataStore.saveSettings()
